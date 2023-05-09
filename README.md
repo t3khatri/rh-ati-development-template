@@ -1,2 +1,3 @@
 # rh-ati-development-template
-demo
+
+rh-ati-development-template

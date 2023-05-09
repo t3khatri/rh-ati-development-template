@@ -1,0 +1,253 @@
+properties([
+    parameters([
+        choice(choices: ['dev'], name: 'Target'),
+        choice(choices: ['None','atge-services-dev','auc-dev','ross-dev','ccn-dev','becker-dev'], name: 'Environment'),
+        choice(choices: ['4.4.0'], name: 'Runtime Version'),
+        choice(choices: ['None','1','2','3','4','5','6','7','8'], name: 'Workers'),
+        choice(choices: ['None','MICRO(0.1 vCores)','SMALL(0.2 vCores)','MEDIUM(1 vCore )','LARGE(2 vCores)','XLARGE(4 vCores)','XXLARGE(8 vCores)','4XLARGE(16 vCores)'], name: 'Worker Size'),
+        choice(choices: ['false', 'true'], name: 'Persistent Queues'),
+        choice(choices: ['N', 'Y'], name: 'isRelease'), 
+        string(defaultValue: '',name: 'versionNumber', trim: true)
+        ])  
+        ])
+if ("${currentBuild.number}" == '1')
+{
+    currentBuild.result = 'ABORTED'
+    error('Build aborted as this is the first build')
+}
+else if ("${params.'Environment'}" == 'None')
+{
+    currentBuild.result = 'ABORTED'
+    error('Build aborted as Environment is not selected')
+}
+else if ("${params.Workers}" == 'None')
+{
+    currentBuild.result = 'ABORTED'
+    error('Build aborted as workers is not selected')
+}
+else if ("${params.'Worker Size'}" == 'None')
+{
+    currentBuild.result = 'ABORTED'
+    error('Build aborted as worker size is not selected')
+}
+else if ("$BRANCH_NAME" == 'master' && "${params.target}" == 'dev' && "${params.isRelease}" == 'N')
+{
+    currentBuild.result = 'ABORTED'
+    error('Build aborted as wrong value for isRelease selected')
+}
+else
+{
+node('DoesAnything')
+{
+    properties([
+        parameters([
+            choice(choices: ['dev'], name: 'Target'),
+            choice(choices: ['None','atge-services-dev','auc-dev','ross-dev','ccn-dev','becker-dev'], name: 'Environment'),
+            choice(choices: ['4.4.0'], name: 'Runtime Version'),
+            choice(choices: ['1','2','3','4','5','6','7','8'], name: 'Workers'),
+            choice(choices: ['None','MICRO(0.1 vCores)','SMALL(0.2 vCores)','MEDIUM(1 vCore )','LARGE(2 vCores)','XLARGE(4 vCores)','XXLARGE(8 vCores)','4XLARGE(16 vCores)'], name: 'Worker Size'),
+            choice(choices: ['false', 'true'], name: 'Persistent Queues'),
+            choice(choices: ['N', 'Y'], name: 'isRelease'), 
+            string(defaultValue: '',name: 'versionNumber', trim: true)
+            ])  
+        ])
+    echo "current build number: ${currentBuild.number}" 
+    echo "Target = '${params.Target}' , Environment = '${params.Environment}' , Runtime Version = '${params.'Runtime Version'}' , Workers = '${params.Workers}', Worker Size = '${params.'Worker Size'}' , Persistent Queues = '${params.'Persistent Queues'}', IsRelease  = '${params.isRelease}'"
+    
+    stage('Preparation')
+    {
+        cleanWs()
+        sh 'sudo yum install -y java-1.8.0-openjdk-devel'
+        sh 'sudo yum install -y jq'
+        checkout scm
+        env.url = sh(returnStdout: true, script: 'git config remote.origin.url').trim()         
+  }//State Preparation
+  
+  stage('Build and Deploy') 
+    { 
+      def jarFileName = readMavenPom().getArtifactId()+'-'+readMavenPom().getVersion()+'-mule-application.jar' 
+      def groupId = readMavenPom().getGroupId()
+      def artifactId = readMavenPom().getArtifactId()
+      env.target = "${params.'Target'}"
+      env.runtimeVersion = "${params.'Runtime Version'}"
+      env.targetEnvironment = "${params.'Environment'}"
+      env.muleWorkers = "${params.'Workers'}"
+      env.persistentQueues = "${params.'Persistent Queues'}"
+      env.applicationName = artifactId+'-'+target
+      env.grantType = 'client_credentials'
+      env.paramworkerType = "${params.'Worker Size'}"
+      env.workerType =paramworkerType.split("\\(")[0]
+      env.targetEnv =target
+
+      
+      //Derive BusinessGroupid
+      echo "Runtime Version = '${runtimeVersion}' , Workers = '${workers}', workerSize = '${workerType}'"
+      if ("${params.Environment}" == 'atge-services-dev')
+      {
+        withCredentials([
+              string(credentialsId: 'mule_atge_services_bg', variable: 'atgeservicesBG')]) 
+        {
+            env.businessgroupID = atgeservicesBG
+        }
+       }
+       else if ("${params.Environment}" == 'auc-dev')
+       {
+        withCredentials([
+            string(credentialsId: 'mule_auc_bg', variable: 'aucBG')]) 
+            {
+                    env.businessgroupID = aucBG
+            }
+       }
+       else if ("${params.Environment}" == 'ross-dev')
+       {
+        withCredentials([
+                 string(credentialsId: 'mule_ross_bg', variable: 'rossBG')]) 
+                 {
+                    env.businessgroupID = rossBG
+                 }
+       }
+       else if ("${params.Environment}" == 'ccn-dev')
+       {
+        withCredentials([
+            string(credentialsId: 'mule_ccn_bg', variable: 'ccnBG')]) 
+                 {
+                    env.businessgroupID = ccnBG
+                 }
+       }
+       else if ("${params.Environment}" == 'becker-dev')
+       {
+        withCredentials([
+                string(credentialsId: 'mule_ccn_bg', variable: 'ccnBG')]) 
+                {
+                    env.businessgroupID = ccnBG
+                }
+       }
+      if ("$BRANCH_NAME" != 'master' && "${params.Target}" == 'dev' && "${params.isRelease}" == 'N') 
+      {
+        withCredentials([
+          string(credentialsId: 'mule_secure_encryptionkey', variable: 'encryptSecureKey')]) 
+        {
+        withCredentials([
+       string(credentialsId: 'newrelic.license.key', variable: 'newrelicLicenseKey')]) 
+        {
+        withCredentials([
+          usernamePassword(credentialsId: 'mulesoft_connectedapps', passwordVariable: 'connectedapps_clientsecret', usernameVariable: 'connectedapps_clientid'),
+          usernamePassword(credentialsId: 'nexus_id', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS'),
+          usernamePassword(credentialsId: 'anypoint_platform_credentials', usernameVariable: 'anypointplatform_clientid', passwordVariable: 'anypointplatform_clientsecret')
+          ])
+        {
+          withMaven(maven: "Maven 3.6.3", mavenSettingsConfig: 'Adtalem_Settings_File_CH',mavenOpts: '-Xmx2048m -Xms512m -XX:PermSize=256m') 
+            {
+              sh 'echo NOT MASTER target ==dev and isRelease==N'
+              final String response = sh(script: "curl --location --request POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token --header 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'client_id=${connectedapps_clientid}' --data-urlencode 'client_secret=${connectedapps_clientsecret}' --data-urlencode 'grant_type=client_credentials' | jq -r .'access_token'", returnStdout: true).trim()
+              env.exchangeToken = response
+              sh 'mvn clean package -U deploy:deploy -Dserver.username=${NEXUS_USER} -Dserver.password=${NEXUS_PASS} mule:deploy -DconnectedApp.clientId=${connectedapps_clientid} -DconnectedApp.clientSecret=${connectedapps_clientsecret} -DconnectedApp.grantType=${grantType} -Dmule.runtime.version=${runtimeVersion} -Dmule.applicationName=${applicationName} -Dmule.runtime.env=${targetEnvironment} -Dmule.runtime.workers=${muleWorkers} -Dmule.runtime.workerType=${workerType} -Dmule.app.persistentQueues=${persistentQueues} -Danypoint.businessGroupId=${businessgroupID} -Dencrypt.secret.key=${encryptSecureKey} -Dnewrelic.license.key=${newrelicLicenseKey} -Dmule.env=${targetEnv} -Danypoint.ch.token=${exchangeToken} -Danypoint.platform.client_id=${anypointplatform_clientid} -Danypoint.platform.client_secret=${anypointplatform_clientsecret} -DskipMunitTests'
+            } //withMaven
+        } //withCredentials EncryptionKey
+        } //withCredentials ClientId Secret
+        } //withCredentials New Relic License Key
+    } //if
+    else if ("$BRANCH_NAME" == 'master' && "${params.Target}" == 'dev' && "${params.isRelease}" == 'Y')
+    {
+        println('echo MASTER branch')
+        println('assumption is developer has merged the code to master and the build is executed from the master.')
+        println('echo Create the release, tag it, update the pom & perform compile, package, upload artifact to nexus, deploy to Mule dev runtime environment') 
+        def masterpom = readMavenPom file: 'pom.xml'
+        POM_VERSION = readMavenPom().getVersion()
+        echo POM_VERSION
+    echo groupId
+    echo artifactId
+        echo jarFileName
+        BUILD_RELEASE_VERSION = readMavenPom().getVersion().replace("-SNAPSHOT", "")
+        echo BUILD_RELEASE_VERSION
+        def versionList = BUILD_RELEASE_VERSION.tokenize(".")
+        def newRelease = Eval.me(versionList[2])+1
+        echo ''+newRelease
+               
+        def version = "${BUILD_RELEASE_VERSION}"
+        withCredentials([
+              string(credentialsId: 'mule_secure_encryptionkey', variable: 'encryptSecureKey')]) 
+            {
+            withCredentials([
+            string(credentialsId: 'newrelic.license.key', variable: 'newrelicLicenseKey')]) 
+            {
+            withCredentials([
+              usernamePassword(credentialsId: 'mulesoft_connectedapps', passwordVariable: 'connectedapps_clientsecret', usernameVariable: 'connectedapps_clientid'),
+              usernamePassword(credentialsId: 'nexus_id', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS'),
+              usernamePassword(credentialsId: 'anypoint_platform_credentials', usernameVariable: 'anypointplatform_clientid', passwordVariable: 'anypointplatform_clientsecret')
+              ])
+            {
+              withMaven(maven: "Maven 3.6.3", mavenSettingsConfig: 'Adtalem_Settings_File_CH',mavenOpts: '-Xmx2048m -Xms512m -XX:PermSize=256m') 
+                {
+                  masterpom.version = BUILD_RELEASE_VERSION
+                  writeMavenPom model: masterpom
+                  final String response = sh(script: "curl --location --request POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token --header 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'client_id=${connectedapps_clientid}' --data-urlencode 'client_secret=${connectedapps_clientsecret}' --data-urlencode 'grant_type=client_credentials' | jq -r .'access_token'", returnStdout: true).trim()
+                  env.exchangeToken = response
+                  sh 'mvn clean package -U deploy:deploy -Dserver.username=${NEXUS_USER} -Dserver.password=${NEXUS_PASS} mule:deploy -DconnectedApp.clientId=${connectedapps_clientid} -DconnectedApp.clientSecret=${connectedapps_clientsecret} -DconnectedApp.grantType=${grantType} -Dmule.runtime.version=${runtimeVersion} -Dmule.applicationName=${applicationName} -Dmule.runtime.env=${targetEnvironment} -Dmule.runtime.workers=${muleWorkers} -Dmule.runtime.workerType=${workerType} -Dmule.app.persistentQueues=${persistentQueues} -Danypoint.businessGroupId=${businessgroupID} -Dencrypt.secret.key=${encryptSecureKey} -Dnewrelic.license.key=${newrelicLicenseKey} -Dmule.env=${targetEnv} -Danypoint.ch.token=${exchangeToken} -Danypoint.platform.client_id=${anypointplatform_clientid} -Danypoint.platform.client_secret=${anypointplatform_clientsecret} -DskipMunitTests'
+                } //withMaven
+            } //withCredentials EncryptionKey
+        } //withCredentials ClientId Secret
+        } //withCredentials New Relic License Key
+    withCredentials([
+                    sshUserPrivateKey(credentialsId: 'CodeCommit_Mulesoft_SSH', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')
+                    ]) 
+                  {
+                       withEnv(["GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no -o User=${SSH_USER} -i ${SSH_KEY}"])
+                       {
+                            script
+                            {
+                                 env.repoName = url.substring(url.lastIndexOf('/') + 1, url.length())                   
+                             echo 'REPO NAME '+repoName
+                                 env.sshURL="ssh://${SSH_USER}@git-codecommit.us-east-2.amazonaws.com/v1/repos/${repoName}"
+                   echo ' SSH URL '+sshURL
+                            stage('tag')
+                                {
+                          sh "git checkout ."
+                                    sh "git checkout master"        
+                                  sh "git clean -f"
+                                  sh "git reset --hard"
+                        sh "git checkout ."
+                        sh "git remote set-url origin ${sshURL}"
+                    sh "git pull origin master"
+                                sh "git tag -f v${version} -m JenkinsRelease"
+                    sh "git remote set-url origin ${sshURL}"
+                    sh "git push -u origin master --tag"
+                            } //stage('tag')
+
+                            stage('updatedevelopmentPOMVersion')
+                            {
+                                sh "git checkout ."
+                                sh "git checkout develop"
+                                sh "git clean -f"
+                                sh "git reset --hard"
+                                sh "git checkout ."
+                                sh "git remote set-url origin ${sshURL}"
+                                sh "git pull origin develop"
+                                def developPOM = readMavenPom file: 'pom.xml'           
+                    def developVersion = "${versionList[0]}.${versionList[1]}.${newRelease}-SNAPSHOT"
+
+                    echo "print version= '${versionList[0]}.${versionList[1]}.${newRelease}'"
+                                println('mvn clean versions:set -DnewVersion=${versionList[0]}.${versionList[1]}.${newRelease}-SNAPSHOT')
+             
+                    developPOM.version = developVersion
+                    writeMavenPom model: developPOM
+
+                                //sh 'mvn clean versions:set -DnewVersion='+"${versionList[0]}.${versionList[1]}.${newRelease}"+'-SNAPSHOT'
+                                sh "git add -- pom.xml"
+                                sh 'git commit -m "jenskinsChangingVersion"'
+                                sh "git push -u origin develop"
+                            } //stage('updatedevelopmentPOMVersion')
+                        } //script
+                    } //withEnv
+                } //withCredentials
+    } //else if     
+ 
+    else 
+        {
+        currentBuild.result = 'ABORTED'
+        error('Wrong input selected.')
+    }
+    
+  } //stage('Build and Deploy')  
+ }// else code for build number
+}//node('DoesAnything')

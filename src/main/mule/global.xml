@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:adtalem-core="http://www.mulesoft.org/schema/mule/adtalem-core"
+	xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core 
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/adtalem-core http://www.mulesoft.org/schema/mule/adtalem-core/current/mule-adtalem-core.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	 
+	 <!--  http:listener-config name="development-template-httpListenerConfig">
+        <http:listener-connection host="${https.host}" port="${https.private.port}" protocol="HTTPS">
+            <tls:context>
+                <tls:key-store type="${https.tls.type}" path="${https.tls.path}" keyPassword="${secure::http.tls.keypassword}" password="${secure::http.tls.password}" />
+            </tls:context>
+        </http:listener-connection>
+    </http:listener-config-->
+
+	<global-property doc:name="Global Property" doc:id="fe2078f3-d42b-4aca-b43b-a3a7a5dd0642" name="mule.env" value="local" />
+	    
+	 <http:listener-config name="development-template-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8082">
+        </http:listener-connection>
+    </http:listener-config>
+        
+	<http:request-config
+		name="HTTP_Request_configuration"
+		doc:name="HTTP Request configuration"
+		doc:id="3952742f-203f-4760-ad8f-c6059bd49404">
+		<http:request-connection host="abc.test"
+			port="8081" />
+	</http:request-config>
+	<configuration-properties
+		doc:name="Configuration properties"
+		doc:id="1428de73-8db5-4bb6-9437-53642d92c997"
+		file="properties\common\common.yaml" />
+
+	<configuration doc:name="Configuration"
+		doc:id="49444e6f-ce08-4d21-acfe-ed2103dd0dfa"
+		defaultErrorHandler-ref="GlobalErrorHandling" />
+	<api-gateway:autodiscovery apiId="${api.id}"
+		ignoreBasePath="true" doc:name="API Autodiscovery"
+		doc:id="9cd3ce6f-272a-4b94-aec6-cb3d715bbb8c"
+		flowRef="development-template-main" />
+
+
+	<secure-properties:config
+		name="Secure_Properties_Config" doc:name="Secure Properties Config"
+		doc:id="e4045969-bf8e-42f3-a76c-37a774260e65"
+		file="properties/secure/mule-${mule.env}-secure.properties"
+		key="MULE">
+		<secure-properties:encrypt
+			algorithm="Blowfish" />
+	</secure-properties:config>
+
+	<configuration-properties
+		doc:name="Configuration properties"
+		doc:id="ecd866b9-c83d-46c2-87b4-13c3206aca9c"
+		file="properties/mule-${mule.env}.yaml" />
+		
+</mule>

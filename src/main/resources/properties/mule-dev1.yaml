@@ -1,0 +1,24 @@
+#This Local API's config Details
+api:
+  id: "0000"
+  host: "0.0.0.0"
+  basePath: ""
+
+#API's config
+https:
+  protocol: "HTTPS"
+  host: "0.0.0.0"
+  readTimeout: "30000"
+  private:
+    port: "8092"
+  tls:
+    type: "JKS"
+    path: "keystore/keystore.jks"
+    
+httpRequest:
+  maxConnections: "-1"
+  responseBufferSize: "1024"
+  timeouts:    
+    connection: "30000"
+    idle: "3000"
+    response: "30000"

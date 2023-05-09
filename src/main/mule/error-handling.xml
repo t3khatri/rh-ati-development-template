@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger" xmlns:adtalem-core="http://www.mulesoft.org/schema/mule/adtalem-core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/adtalem-core http://www.mulesoft.org/schema/mule/adtalem-core/current/mule-adtalem-core.xsd
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd">
+
+	<error-handler name="GlobalErrorHandling" doc:id="88c24802-d345-4ca3-bbba-ed753a1a08c9" >
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="83af06dc-82a1-45bf-b5aa-e75674752c76" >
+			<logger level="INFO" doc:name="Logger" doc:id="7407d871-5b17-4ef7-9f60-ccb4def866bf" />
+		</on-error-propagate>
+	</error-handler>
+</mule>
